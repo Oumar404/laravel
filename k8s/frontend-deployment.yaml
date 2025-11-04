@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/Oumar404/appnotes-frontend:latest
+          image: ghcr.io/oumar404/appnotes-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

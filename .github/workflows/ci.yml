@@ -51,8 +51,8 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ghcr.io/Oumar404/appnotes-frontend:latest
-            ghcr.io/Oumar404/appnotes-frontend:${{ github.sha }}
+            ghcr.io/oumar404/appnotes-frontend:latest
+            ghcr.io/oumar404/appnotes-frontend:${{ github.sha }}
 
       - name: Build and push backend
         uses: docker/build-push-action@v6
@@ -60,5 +60,5 @@ jobs:
           context: ./appNotes
           push: true
           tags: |
-            ghcr.io/Oumar404/appnotes-backend:latest
-            ghcr.io/Oumar404/appnotes-backend:${{ github.sha }}
+            ghcr.io/oumar404/appnotes-backend:latest
+            ghcr.io/oumar404/appnotes-backend:${{ github.sha }}
