@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      GHCR_OWNER: ${{ toLower(github.repository_owner) }}
     permissions:
       contents: read
       packages: write
@@ -51,8 +53,8 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ghcr.io/oumar404/appnotes-frontend:latest
-            ghcr.io/oumar404/appnotes-frontend:${{ github.sha }}
+            ghcr.io/${{ env.GHCR_OWNER }}/appnotes-frontend:latest
+            ghcr.io/${{ env.GHCR_OWNER }}/appnotes-frontend:${{ github.sha }}
 
       - name: Build and push backend
         uses: docker/build-push-action@v6
@@ -60,5 +62,5 @@ jobs:
           context: ./appNotes
           push: true
           tags: |
-            ghcr.io/oumar404/appnotes-backend:latest
-            ghcr.io/oumar404/appnotes-backend:${{ github.sha }}
+            ghcr.io/${{ env.GHCR_OWNER }}/appnotes-backend:latest
+            ghcr.io/${{ env.GHCR_OWNER }}/appnotes-backend:${{ github.sha }}
