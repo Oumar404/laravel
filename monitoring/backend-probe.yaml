@@ -5,11 +5,11 @@ metadata:
   namespace: gestion-notes
 spec:
   prober:
-    url: blackbox-exporter.gestion-notes.svc.cluster.local:9115
+    url: http://blackbox-exporter.gestion-notes.svc.cluster.local:9115
   module: http_2xx
   targets:
     staticConfig:
       static:
-        - backend-service.gestion-notes.svc.cluster.local:8000
+        - http://backend-service.gestion-notes.svc.cluster.local:8000/healthz
   interval: 30s
   timeout: 10s

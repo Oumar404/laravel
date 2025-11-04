@@ -13,8 +13,11 @@ WORKDIR /var/www
 
 COPY . .
 
-RUN composer install
-RUN php artisan key:generate
+RUN composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader \
+ && cp -n .env.example .env || true \
+ && php artisan key:generate --force \
+ && chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
 
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 EXPOSE 8000
