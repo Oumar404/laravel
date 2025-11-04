@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/OWNER/appnotes-backend:latest
+          image: ghcr.io/Oumar404/appnotes-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
