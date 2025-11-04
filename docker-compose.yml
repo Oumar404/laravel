@@ -24,7 +24,7 @@ services:
       - DB_USERNAME=root
       - DB_PASSWORD=root
     ports:
-      - "9000:9000"
+      - "8000:8000"
 
   frontend:
     build: ./frontend
@@ -32,7 +32,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "5173:5173"
+      - "8080:80"
 
 volumes:
   db_data:

@@ -1,0 +1,29 @@
+name: CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'k8s/**'
+      - 'monitoring/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set KUBECONFIG
+        run: |
+          echo "${KUBE_CONFIG}" | base64 -d > kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+
+      - name: kubectl apply
+        env:
+          KUBECONFIG: ${{ github.workspace }}/kubeconfig
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/ -n gestion-notes
+          kubectl apply -f monitoring/ -n gestion-notes || true

@@ -135,3 +135,109 @@ Pour toute question ou problème, créer une issue sur GitHub.
 ## 📄 Licence
 
 MIT License
+
+---
+
+# 🛠️ Guide DevOps (Docker, Kubernetes, CI/CD, Monitoring)
+
+## 🚢 Docker Compose (développement local)
+
+```
+docker compose up -d --build
+```
+
+- Frontend: http://localhost:8080
+- Backend API: http://localhost:8000
+- MySQL: 3306 (volume: `db_data`)
+
+Arrêt et nettoyage:
+
+```
+docker compose down -v
+```
+
+## ☸️ Kubernetes (namespace `gestion-notes`)
+
+Prérequis: Ingress NGINX installé, `kubectl` configuré.
+
+```
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/ -n gestion-notes
+```
+
+Ingress par défaut: `gestion-notes.local`
+Ajoutez dans `/etc/hosts` (en local):
+
+```
+127.0.0.1 gestion-notes.local
+```
+
+Vérification:
+
+```
+kubectl get pods,svc,ingress -n gestion-notes
+```
+
+## 📦 Images & Registre
+
+Les manifests référencent GHCR: `ghcr.io/OWNER/appnotes-frontend` et `ghcr.io/OWNER/appnotes-backend`.
+Remplacez `OWNER` par votre compte/organisation GitHub, ou ajustez les manifests/workflows si vous utilisez un autre registre.
+
+## 🔄 CI/CD (GitHub Actions)
+
+- CI: `.github/workflows/ci.yml` build et push des images vers GHCR.
+- CD: `.github/workflows/cd.yml` applique `k8s/` et `monitoring/` sur le cluster.
+
+Secrets requis dans le repo GitHub:
+
+- `KUBE_CONFIG`: kubeconfig du cluster encodé en base64.
+- `GITHUB_TOKEN`: fourni par GitHub, permet le push vers GHCR (packages: write).
+
+Déclenchement:
+
+- CI: push PR/main.
+- CD: push sur `main` modifiant `k8s/**` ou `monitoring/**` (ou `workflow_dispatch`).
+
+## 📊 Monitoring (Prometheus + Grafana)
+
+Installer kube-prometheus-stack (namespace `monitoring`):
+
+```
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace
+```
+
+Déployer blackbox-exporter et la Probe HTTP:
+
+```
+kubectl apply -f monitoring/blackbox-exporter.yaml -n gestion-notes
+kubectl apply -f monitoring/backend-probe.yaml -n gestion-notes
+```
+
+Grafana:
+
+```
+kubectl port-forward svc/monitoring-grafana -n monitoring 3000:80
+```
+
+Accéder à http://localhost:3000 (admin/prom-operator par défaut), ajouter un panel sur `probe_success{probe="backend-http-probe"}`.
+
+## 🧪 Santé & Probes
+
+- Backend: `/healthz` renvoie `{ "status": "ok" }` → utiliser pour readiness/liveness (port 8000).
+- Frontend: probes HTTP `/` (port 80).
+- MySQL: probes TCP 3306.
+
+## 🧰 Dépannage rapide
+
+- Pods en CrashLoop:
+  - `kubectl logs <pod> -n gestion-notes`
+  - `kubectl describe pod <pod> -n gestion-notes` (probes/resources)
+- Ingress non joignable:
+  - Vérifier l’ingress controller, DNS/hosts, règles Ingress
+- CI push GHCR échoue:
+  - Vérifier permissions `packages: write` sur `GITHUB_TOKEN` et OWNER correct
+- DB non persistante:
+  - Remplacer `emptyDir: {}` par PVC (StatefulSet + PersistentVolumeClaim)
