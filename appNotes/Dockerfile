@@ -18,10 +18,14 @@ WORKDIR /var/www
 # Copier les fichiers composer d'abord pour profiter du cache
 COPY composer.json composer.lock ./
 
-RUN composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+# Installer les dépendances sans exécuter les scripts (artisan n'existe pas encore)
+RUN composer install --no-interaction --prefer-dist --no-dev --no-scripts
 
 # Copier le reste de l'application
 COPY . .
+
+# Maintenant que artisan existe, régénérer l'autoloader avec les scripts
+RUN composer dump-autoload --optimize --no-dev
 
 # Ne pas générer la clé à la build; l'entrypoint gère .env & APP_KEY à l'exécution
 RUN chown -R www-data:www-data storage bootstrap/cache \
