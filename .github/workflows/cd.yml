@@ -8,11 +8,20 @@ on:
       - 'k8s/**'
       - 'monitoring/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.29.0'
 
       - name: Set KUBECONFIG
         run: |
@@ -24,6 +33,7 @@ jobs:
         env:
           KUBECONFIG: ${{ github.workspace }}/kubeconfig
         run: |
+          kubectl version --client=true
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/ -n gestion-notes
           kubectl apply -f monitoring/ -n gestion-notes || true
