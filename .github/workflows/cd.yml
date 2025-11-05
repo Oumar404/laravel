@@ -24,8 +24,16 @@ jobs:
           version: 'v1.29.0'
 
       - name: Set KUBECONFIG
+        shell: bash
         run: |
-          echo "${KUBE_CONFIG}" | base64 -d > kubeconfig
+          set -euo pipefail
+          if echo "${KUBE_CONFIG}" | base64 -d >/dev/null 2>&1; then
+            echo "[info] Detected base64-encoded kubeconfig secret"
+            echo "${KUBE_CONFIG}" | base64 -d > kubeconfig
+          else
+            echo "[info] Detected plain-text kubeconfig secret"
+            printf "%s" "${KUBE_CONFIG}" > kubeconfig
+          fi
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
