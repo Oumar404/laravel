@@ -27,13 +27,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if echo "${KUBE_CONFIG}" | base64 -d >/dev/null 2>&1; then
+          # Nettoyer les espaces/newlines du secret
+          CLEAN_CONFIG=$(echo "${KUBE_CONFIG}" | tr -d '\n\r' | sed 's/ //g')
+          
+          # Tester si c'est du base64 valide
+          if echo "${CLEAN_CONFIG}" | base64 -d > /tmp/test_decode 2>&1; then
             echo "[info] Detected base64-encoded kubeconfig secret"
-            echo "${KUBE_CONFIG}" | base64 -d > kubeconfig
+            echo "${CLEAN_CONFIG}" | base64 -d > kubeconfig
+            rm -f /tmp/test_decode
           else
             echo "[info] Detected plain-text kubeconfig secret"
             printf "%s" "${KUBE_CONFIG}" > kubeconfig
           fi
+          
+          # Vérifier que le fichier est valide
+          if ! grep -q "apiVersion: v1" kubeconfig; then
+            echo "[ERROR] kubeconfig does not contain 'apiVersion: v1'"
+            cat kubeconfig
+            exit 1
+          fi
+          echo "[info] Kubeconfig loaded successfully"
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
