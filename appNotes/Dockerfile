@@ -27,9 +27,12 @@ COPY . .
 # Maintenant que artisan existe, régénérer l'autoloader avec les scripts
 RUN composer dump-autoload --optimize --no-dev
 
-# Ne pas générer la clé à la build; l'entrypoint gère .env & APP_KEY à l'exécution
-RUN chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage/bootstrap/cache
+# Créer les dossiers de cache Laravel s'ils n'existent pas
+RUN mkdir -p storage/framework/{cache,sessions,views,testing} \
+    && mkdir -p storage/logs \
+    && mkdir -p bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 # Entrypoint pour générer la clé à l'exécution et démarrer le serveur
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
