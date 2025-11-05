@@ -27,26 +27,41 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Nettoyer les espaces/newlines du secret
-          CLEAN_CONFIG=$(echo "${KUBE_CONFIG}" | tr -d '\n\r' | sed 's/ //g')
           
-          # Tester si c'est du base64 valide
-          if echo "${CLEAN_CONFIG}" | base64 -d > /tmp/test_decode 2>&1; then
-            echo "[info] Detected base64-encoded kubeconfig secret"
-            echo "${CLEAN_CONFIG}" | base64 -d > kubeconfig
-            rm -f /tmp/test_decode
+          echo "[info] Secret length: ${#KUBE_CONFIG} characters"
+          echo "[info] First 50 chars: ${KUBE_CONFIG:0:50}"
+          
+          # Supprimer TOUS les espaces, tabs, newlines, retours chariot
+          CLEAN_CONFIG=$(echo "${KUBE_CONFIG}" | tr -d ' \t\n\r')
+          
+          echo "[info] After cleaning: ${#CLEAN_CONFIG} characters"
+          echo "[info] First 50 chars cleaned: ${CLEAN_CONFIG:0:50}"
+          
+          # Décoder le base64
+          if echo "${CLEAN_CONFIG}" | base64 -d > kubeconfig 2>/dev/null; then
+            echo "[info] Successfully decoded base64 kubeconfig"
           else
-            echo "[info] Detected plain-text kubeconfig secret"
-            printf "%s" "${KUBE_CONFIG}" > kubeconfig
-          fi
-          
-          # Vérifier que le fichier est valide
-          if ! grep -q "apiVersion: v1" kubeconfig; then
-            echo "[ERROR] kubeconfig does not contain 'apiVersion: v1'"
-            cat kubeconfig
+            echo "[ERROR] Failed to decode base64"
+            echo "[ERROR] Secret appears corrupted or contains invalid characters"
             exit 1
           fi
-          echo "[info] Kubeconfig loaded successfully"
+          
+          # Vérifier que le fichier décodé est valide
+          if ! grep -q "apiVersion: v1" kubeconfig; then
+            echo "[ERROR] Decoded kubeconfig does not contain 'apiVersion: v1'"
+            echo "[ERROR] Content preview:"
+            head -20 kubeconfig
+            exit 1
+          fi
+          
+          # Vérifier les certificats
+          if ! grep -q "certificate-authority-data:" kubeconfig; then
+            echo "[ERROR] Missing certificate-authority-data in kubeconfig"
+            exit 1
+          fi
+          
+          echo "[info] ✅ Kubeconfig loaded and validated successfully"
+          kubectl config view --kubeconfig=kubeconfig --minify
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
 
