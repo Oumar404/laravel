@@ -7,20 +7,25 @@ ARG BUILD_REV=local
 # Installer les dépendances système
 RUN apt-get update && apt-get install -y \
     git curl libpng-dev libjpeg-dev libfreetype6-dev zip unzip \
-    && docker-php-ext-install pdo_mysql
+    && docker-php-ext-install pdo_mysql \
+    && rm -rf /var/lib/apt/lists/*
 
 # Installer Composer
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
+# Copier les fichiers composer d'abord pour profiter du cache
+COPY composer.json composer.lock ./
+
+RUN composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+
+# Copier le reste de l'application
 COPY . .
 
-RUN composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader \
- && cp -n .env.example .env \
- && php artisan key:generate --force \
- && chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
+# Ne pas générer la clé à la build; l'entrypoint gère .env & APP_KEY à l'exécution
+RUN chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage/bootstrap/cache
 
 # Entrypoint pour générer la clé à l'exécution et démarrer le serveur
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -28,3 +33,4 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 8000
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

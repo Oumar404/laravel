@@ -36,4 +36,4 @@ jobs:
           kubectl version --client=true
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/ -n gestion-notes
-          kubectl apoply -f monitoring/ -n gestion-notes || true
+          kubectl apply -f monitoring/ -n gestion-notes || true
