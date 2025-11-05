@@ -1,6 +1,9 @@
 # backend/Dockerfile
 FROM php:8.2-fpm
 
+# Build cache buster (set via build-arg)
+ARG BUILD_REV=local
+
 # Installer les dépendances système
 RUN apt-get update && apt-get install -y \
     git curl libpng-dev libjpeg-dev libfreetype6-dev zip unzip \

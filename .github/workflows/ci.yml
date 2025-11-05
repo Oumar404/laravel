@@ -56,3 +56,5 @@ jobs:
             ghcr.io/${{ steps.set_owner.outputs.owner }}/appnotes-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_REV=${{ github.sha }}
