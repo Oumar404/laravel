@@ -28,39 +28,98 @@ jobs:
         run: |
           set -euo pipefail
           
-          echo "[info] Secret length: ${#KUBE_CONFIG} characters"
-          echo "[info] First 50 chars: ${KUBE_CONFIG:0:50}"
+          echo "================================================"
+          echo "DIAGNOSTIC KUBECONFIG"
+          echo "================================================"
+          echo "[info] Secret length RAW: ${#KUBE_CONFIG} characters"
+          echo "[info] First 60 chars: ${KUBE_CONFIG:0:60}"
+          echo "[info] Last 20 chars: ${KUBE_CONFIG: -20}"
           
-          # Supprimer TOUS les espaces, tabs, newlines, retours chariot
-          CLEAN_CONFIG=$(echo "${KUBE_CONFIG}" | tr -d ' \t\n\r')
+          # Nettoyer UNIQUEMENT les newlines/carriage returns (PAS les espaces dans le base64)
+          CLEAN_CONFIG=$(echo "${KUBE_CONFIG}" | tr -d '\n\r')
           
-          echo "[info] After cleaning: ${#CLEAN_CONFIG} characters"
-          echo "[info] First 50 chars cleaned: ${CLEAN_CONFIG:0:50}"
+          echo "[info] After removing newlines: ${#CLEAN_CONFIG} characters"
+          echo "[info] First 60 chars cleaned: ${CLEAN_CONFIG:0:60}"
+          
+          # Vérifier que c'est du base64 valide (doit se terminer par = ou ==)
+          if [[ ! "${CLEAN_CONFIG}" =~ ^[A-Za-z0-9+/]+={0,2}$ ]]; then
+            echo "[ERROR] Secret does not look like valid base64"
+            echo "[ERROR] Expected only A-Z, a-z, 0-9, +, /, and = characters"
+            exit 1
+          fi
           
           # Décoder le base64
-          if echo "${CLEAN_CONFIG}" | base64 -d > kubeconfig 2>/dev/null; then
-            echo "[info] Successfully decoded base64 kubeconfig"
-          else
+          if ! echo "${CLEAN_CONFIG}" | base64 -d > kubeconfig 2>&1; then
             echo "[ERROR] Failed to decode base64"
-            echo "[ERROR] Secret appears corrupted or contains invalid characters"
+            echo "[ERROR] The secret may be corrupted or not base64-encoded"
             exit 1
           fi
           
-          # Vérifier que le fichier décodé est valide
+          echo "[info] ✅ Successfully decoded base64"
+          echo "[info] Decoded file size: $(wc -c < kubeconfig) bytes"
+          
+          # Vérifier que c'est du YAML valide
           if ! grep -q "apiVersion: v1" kubeconfig; then
             echo "[ERROR] Decoded kubeconfig does not contain 'apiVersion: v1'"
-            echo "[ERROR] Content preview:"
-            head -20 kubeconfig
+            echo "[ERROR] Content preview (first 30 lines):"
+            head -30 kubeconfig
             exit 1
           fi
           
-          # Vérifier les certificats
+          echo "[info] ✅ Found 'apiVersion: v1'"
+          
+          # Vérifier les certificats requis
+          MISSING_FIELDS=""
           if ! grep -q "certificate-authority-data:" kubeconfig; then
-            echo "[ERROR] Missing certificate-authority-data in kubeconfig"
+            MISSING_FIELDS="${MISSING_FIELDS}\n  - certificate-authority-data"
+          fi
+          if ! grep -q "client-certificate-data:" kubeconfig; then
+            MISSING_FIELDS="${MISSING_FIELDS}\n  - client-certificate-data"
+          fi
+          if ! grep -q "client-key-data:" kubeconfig; then
+            MISSING_FIELDS="${MISSING_FIELDS}\n  - client-key-data"
+          fi
+          
+          if [ -n "$MISSING_FIELDS" ]; then
+            echo "[ERROR] Missing required certificate fields:${MISSING_FIELDS}"
             exit 1
           fi
           
-          echo "[info] ✅ Kubeconfig loaded and validated successfully"
+          echo "[info] ✅ All certificate fields present"
+          
+          # Extraire et valider les certificats PEM
+          echo "[info] Validating PEM certificates..."
+          
+          # Vérifier certificate-authority-data
+          CA_DATA=$(grep "certificate-authority-data:" kubeconfig | awk '{print $2}')
+          if ! echo "$CA_DATA" | base64 -d | grep -q "BEGIN CERTIFICATE"; then
+            echo "[ERROR] certificate-authority-data does not contain valid PEM certificate"
+            echo "[ERROR] CA data starts with: ${CA_DATA:0:50}..."
+            exit 1
+          fi
+          echo "[info] ✅ certificate-authority-data is valid PEM"
+          
+          # Vérifier client-certificate-data
+          CLIENT_CERT=$(grep "client-certificate-data:" kubeconfig | awk '{print $2}')
+          if ! echo "$CLIENT_CERT" | base64 -d | grep -q "BEGIN CERTIFICATE"; then
+            echo "[ERROR] client-certificate-data does not contain valid PEM certificate"
+            exit 1
+          fi
+          echo "[info] ✅ client-certificate-data is valid PEM"
+          
+          # Vérifier client-key-data
+          CLIENT_KEY=$(grep "client-key-data:" kubeconfig | awk '{print $2}')
+          if ! echo "$CLIENT_KEY" | base64 -d | grep -q "BEGIN"; then
+            echo "[ERROR] client-key-data does not contain valid PEM key"
+            exit 1
+          fi
+          echo "[info] ✅ client-key-data is valid PEM"
+          
+          echo "================================================"
+          echo "[info] ✅✅✅ Kubeconfig fully validated and ready!"
+          echo "================================================"
+          
+          # Afficher la config (les données sensibles seront masquées par kubectl)
           kubectl config view --kubeconfig=kubeconfig --minify
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
